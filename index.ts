@@ -117,6 +117,34 @@ export function getAsset(os: string, options: Options): Asset {
 const DEFAULT_NIX_DIRECTORY = "./llvm";
 const DEFAULT_WIN32_DIRECTORY = "C:/Program Files/LLVM";
 
+// An administrative install reproduces the installer's directory table,
+// so the payload lands under the product's install directory inside
+// TARGETDIR rather than directly in it. The first level holding
+// bin/clang.exe is the root the action's callers mean.
+function findWindowsInstallRoot(directory: string): string | null {
+  for (const candidate of [path.join(directory, "LLVM"), directory]) {
+    if (fs.existsSync(path.join(candidate, "bin", "clang.exe"))) {
+      return candidate;
+    }
+  }
+  const queue: Array<{ path: string; depth: number }> = [{ path: directory, depth: 0 }];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (fs.existsSync(path.join(current.path, "bin", "clang.exe"))) {
+      return current.path;
+    }
+    if (current.depth === 3) {
+      continue;
+    }
+    for (const entry of fs.readdirSync(current.path, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        queue.push({ path: path.join(current.path, entry.name), depth: current.depth + 1 });
+      }
+    }
+  }
+  return null;
+}
+
 async function install(options: Options): Promise<void> {
   const os = process.platform;
   const { specificVersion, url } = getAsset(os, options);
@@ -169,6 +197,17 @@ export async function run(options: Options): Promise<void> {
     console.log(`Using cached LLVM and Clang ${options.version}...`);
   } else {
     await install(options);
+  }
+
+  if (process.platform === "win32") {
+    const root = findWindowsInstallRoot(options.directory);
+    if (!root) {
+      throw new Error(`Could not find clang under '${options.directory}'.`);
+    }
+    if (root !== options.directory) {
+      core.info(`LLVM root: ${root}`);
+    }
+    options.directory = root;
   }
 
   const bin = path.join(options.directory, "bin");

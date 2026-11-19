@@ -24028,6 +24028,36 @@ function $73b874f14e970995$export$da446a5ee2572b7(os, options) {
 //================================================
 const $73b874f14e970995$var$DEFAULT_NIX_DIRECTORY = "./llvm";
 const $73b874f14e970995$var$DEFAULT_WIN32_DIRECTORY = "C:/Program Files/LLVM";
+// An administrative install reproduces the installer's directory table,
+// so the payload lands under the product's install directory inside
+// TARGETDIR rather than directly in it. The first level holding
+// bin/clang.exe is the root the action's callers mean.
+function $73b874f14e970995$var$findWindowsInstallRoot(directory) {
+    for (const candidate of [
+        $bknAJ$path.join(directory, "LLVM"),
+        directory
+    ]){
+        if ($bknAJ$fs.existsSync($bknAJ$path.join(candidate, "bin", "clang.exe"))) return candidate;
+    }
+    const queue = [
+        {
+            path: directory,
+            depth: 0
+        }
+    ];
+    while(queue.length > 0){
+        const current = queue.shift();
+        if ($bknAJ$fs.existsSync($bknAJ$path.join(current.path, "bin", "clang.exe"))) return current.path;
+        if (current.depth === 3) continue;
+        for (const entry of $bknAJ$fs.readdirSync(current.path, {
+            withFileTypes: true
+        }))if (entry.isDirectory()) queue.push({
+            path: $bknAJ$path.join(current.path, entry.name),
+            depth: current.depth + 1
+        });
+    }
+    return null;
+}
 async function $73b874f14e970995$var$install(options) {
     const os = process.platform;
     const { specificVersion: specificVersion, url: url } = $73b874f14e970995$export$da446a5ee2572b7(os, options);
@@ -24079,6 +24109,12 @@ async function $73b874f14e970995$export$889ea624f2cb2c57(options) {
     options.directory = $bknAJ$path.resolve(options.directory);
     if (options.cached) console.log(`Using cached LLVM and Clang ${options.version}...`);
     else await $73b874f14e970995$var$install(options);
+    if (process.platform === "win32") {
+        const root = $73b874f14e970995$var$findWindowsInstallRoot(options.directory);
+        if (!root) throw new Error(`Could not find clang under '${options.directory}'.`);
+        if (root !== options.directory) $iL6dd.info(`LLVM root: ${root}`);
+        options.directory = root;
+    }
     const bin = $bknAJ$path.join(options.directory, "bin");
     const lib = $bknAJ$path.join(options.directory, "lib");
     $iL6dd.addPath(bin);

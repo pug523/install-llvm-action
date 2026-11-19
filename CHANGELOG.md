@@ -2,6 +2,7 @@
 
 ### Fixes
 - Fixed the Windows installer (MSI) assets extracting into cabinet file keys with no payload tree; MSI assets now extract with an administrative install
+- Fixed the Windows install root after an MSI extract: the payload's `LLVM` directory is found under TARGETDIR, so the installed compiler is the one on PATH
 
 ## [2.0.9] - 2026-01-20
 

@@ -128,7 +128,22 @@ async function install(options: Options): Promise<void> {
 
   let exit;
   if (os === "win32") {
-    exit = await exec.exec("7z", ["x", archive, `-o${options.directory}`, "-y"]);
+    const directory = options.directory ?? "";
+    const isMsiAsset = url.toLowerCase().endsWith(".msi");
+    if (isMsiAsset) {
+      // An MSI holds its payload as a cabinet of file-table keys, so 7z
+      // would unpack a flat list of those keys instead of the tree the
+      // installer would create. An administrative install lays the payload
+      // out under TARGETDIR. 3010 reports success pending a reboot, which
+      // an administrative extract never needs.
+      await io.mkdirP(directory);
+      exit = await exec.exec("msiexec.exe", ["/a", archive, "/qn", `TARGETDIR=${directory}`]);
+      if (exit === 3010) {
+        exit = 0;
+      }
+    } else {
+      exit = await exec.exec("7z", ["x", archive, `-o${directory}`, "-y"]);
+    }
   } else {
     const directory = options.directory ?? "";
     await io.mkdirP(directory);

@@ -1,3 +1,8 @@
+## [2.0.10] - 2026-11-19
+
+### Fixes
+- Fixed the Windows installer (MSI) assets extracting into cabinet file keys with no payload tree; MSI assets now extract with an administrative install
+
 ## [2.0.9] - 2026-01-20
 
 - Added support for additional LLVM and Clang 20/21 versions

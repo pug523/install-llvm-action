@@ -220,13 +220,15 @@ export async function run(options: Options): Promise<void> {
   const ld = process.env.LD_LIBRARY_PATH ?? "";
   core.exportVariable("LD_LIBRARY_PATH", `${lib}${path.delimiter}${ld}`);
 
-  // Ensure system libraries are first on ARM64 macOS to avoid issues with Apple's libc++ being weird.
+  // On macOS the runner's own Node process inherits this variable. If the
+  // downloaded LLVM's libc++ comes first, Node loads it instead of the
+  // system one and loses symbols such as `___cxa_bad_typeid`. Keep the
+  // system libraries first on every macOS architecture, not just arm64.
   // https://discourse.llvm.org/t/apples-libc-now-provides-std-type-descriptor-t-functionality-not-found-in-upstream-libc/73881/5
-  const dyld = process.env.DYLD_LIBRARY_PATH;
-  let dyldPrefix = "";
-  if (process.platform === "darwin" && process.arch === "arm64") {
-    dyldPrefix = `/usr/lib${path.delimiter}`;
-  }
+  const dyld = process.env.DYLD_LIBRARY_PATH ?? "";
+  const dyldPrefix = process.platform === "darwin"
+    ? `/usr/lib${path.delimiter}`
+    : "";
 
   core.exportVariable("DYLD_LIBRARY_PATH", `${dyldPrefix}${lib}${path.delimiter}${dyld}`);
 

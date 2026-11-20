@@ -24121,11 +24121,13 @@ async function $73b874f14e970995$export$889ea624f2cb2c57(options) {
     $iL6dd.exportVariable("LLVM_PATH", options.directory);
     const ld = process.env.LD_LIBRARY_PATH ?? "";
     $iL6dd.exportVariable("LD_LIBRARY_PATH", `${lib}${$bknAJ$path.delimiter}${ld}`);
-    // Ensure system libraries are first on ARM64 macOS to avoid issues with Apple's libc++ being weird.
+    // On macOS the runner's own Node process inherits this variable. If the
+    // downloaded LLVM's libc++ comes first, Node loads it instead of the
+    // system one and loses symbols such as `___cxa_bad_typeid`. Keep the
+    // system libraries first on every macOS architecture, not just arm64.
     // https://discourse.llvm.org/t/apples-libc-now-provides-std-type-descriptor-t-functionality-not-found-in-upstream-libc/73881/5
-    const dyld = process.env.DYLD_LIBRARY_PATH;
-    let dyldPrefix = "";
-    if (process.platform === "darwin" && process.arch === "arm64") dyldPrefix = `/usr/lib${$bknAJ$path.delimiter}`;
+    const dyld = process.env.DYLD_LIBRARY_PATH ?? "";
+    const dyldPrefix = process.platform === "darwin" ? `/usr/lib${$bknAJ$path.delimiter}` : "";
     $iL6dd.exportVariable("DYLD_LIBRARY_PATH", `${dyldPrefix}${lib}${$bknAJ$path.delimiter}${dyld}`);
     if (options.env) {
         $iL6dd.exportVariable("CC", $bknAJ$path.join(options.directory, "bin", "clang"));
